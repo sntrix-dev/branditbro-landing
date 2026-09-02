@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   brandit·bro. design tokens  →  Tailwind v4 theme
+   Colours become utilities: bg-ink, text-mango,
+   border-sand … and opacity variants text-cream/70
+   ───────────────────────────────────────────── */
+@theme {
+  --color-ink: #16100d;
+  --color-ink-deep: #0b0806;
+  --color-mango: #ff7a00;
+  --color-mango-soft: #ff9c5b;
+  --color-mango-light: #ffb169;
+  --color-chili: #e23e2c;
+  --color-sand: #ffe0c2;
+  --color-cream: #fff3e4;
+  --color-teal: #0e6b5e;
+  --color-brown: #b4643c;
+  --color-brown-mid: #6b4a3a;
+  --color-brown-ink: #4a3730;
+  --color-brown-deep: #3a2b24;
+  --color-line: #eadfd0;
+
+  --font-display: "Gabarito Variable", "Gabarito", system-ui, sans-serif;
+  --font-sans: "DM Sans Variable", "DM Sans", system-ui, sans-serif;
+
+  --ease-out-expo: cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+
+/* ── base ─────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+::selection {
+  background: var(--color-mango);
+  color: var(--color-ink);
+}
+:focus-visible {
+  outline: 2px solid var(--color-mango);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Kill the smooth-scroll + heavy motion for users who ask for it.
+   GSAP also reads this via matchMedia — this is the CSS safety net. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Reveal system — elements start hidden ONLY when JS/GSAP is active,
+   so no-JS crawlers and reduced-motion users see everything. */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  will-change: opacity, transform;
+}
+.reduced .reveal {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* ── keyframes ported 1:1 from the design ─────── */
+@keyframes bibCaret { 0%, 48% { opacity: 1; } 52%, 100% { opacity: 0; } }
+@keyframes bibRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes bibPop { 0% { opacity: 0; transform: scale(0.82); } 60% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes bibSpin { to { transform: rotate(360deg); } }
+@keyframes bibRing { 0% { transform: scale(0.6); opacity: 0.55; } 100% { transform: scale(2.1); opacity: 0; } }
+@keyframes bibBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+@keyframes bibSlideIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes bibSettle { 0% { transform: scale(1); } 40% { transform: scale(1.045); } 100% { transform: scale(1); } }
+@keyframes bibNumOut { to { opacity: 0; transform: translateY(-16px) scale(0.9); filter: blur(7px); } }
+@keyframes bibNumIn { 0% { opacity: 0; transform: translateY(26px) scale(0.94); filter: blur(9px); } 62% { opacity: 1; transform: translateY(-4px) scale(1.035); filter: blur(0); } 100% { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes bibBurst { 0% { opacity: 0; transform: scale(0.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.9); } }
+@keyframes bibSweep { 0% { transform: translateX(-120%) skewX(-14deg); opacity: 0; } 22% { opacity: 1; } 100% { transform: translateX(120%) skewX(-14deg); opacity: 0; } }
+@keyframes bibCharge { 0% { box-shadow: inset 0 0 0 0 rgba(255,122,0,0); } 55% { box-shadow: inset 0 0 90px 0 rgba(255,122,0,0.28); } 100% { box-shadow: inset 0 0 0 0 rgba(255,122,0,0); } }
+@keyframes bibFlash { 0% { opacity: 0; transform: scale(0.2); } 18% { opacity: 0.95; } 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes bibConfetti { 0% { opacity: 0; transform: translate3d(0,0,0) rotate(0deg); } 8% { opacity: 1; } 100% { opacity: 0; transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot)); } }
+@keyframes bibBadgeIn { 0% { opacity: 0; transform: translateX(-10px) scale(0.7) rotate(-6deg); } 60% { opacity: 1; transform: translateX(0) scale(1.08) rotate(1.5deg); } 100% { opacity: 1; transform: none; } }
+@keyframes bibDrift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes bibCue { 0%, 100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(8px); opacity: 1; } }
+@keyframes bibFlicker { 0%, 100% { opacity: 0.9; } 46% { opacity: 1; } 52% { opacity: 0.78; } }
+
+/* pricing builder (v4) — collapse the multi-column grids to one column on
+   phones (desktop layout stays exactly as designed; !important beats the
+   inline grid-template-columns only inside the query). */
+@media (max-width: 768px) {
+  .pb-col { grid-template-columns: 1fr !important; }
+}
+
+/* pricing builder (v4) — entrance + fly-up feedback */
+@keyframes bibRiseA { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes bibRiseB { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes bibFly { 0% { opacity: 0; transform: translate(-50%,0) scale(0.86); } 14% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-78px) scale(1.04); } }
+
+/* small shared utilities */
+.tabnum { font-variant-numeric: tabular-nums; }
+.balance { text-wrap: balance; }
+.pretty { text-wrap: pretty; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Mobile swipe carousels (SwiperJS) */
+.bib-swiper .swiper-slide { width: 78%; height: auto; transition: transform 300ms ease, opacity 300ms ease; will-change: transform; }
+.bib-swiper .swiper-slide > * { height: 100%; }
+
+/* Mobile hero: compress on short phones so it composes in one screen */
+@media (max-height: 700px) { .m-hero-h1 { font-size: 38px !important; } }
+@media (max-height: 640px) { .m-hero-extra { display: none !important; } .m-hero-h1 { font-size: 34px !important; } }
+@media (max-height: 560px) { .m-scrollcue { display: none !important; } }
+
+
+/* ── Hero "workbench" side-visual (ported from design) ─────────── */
+@keyframes hvSlot5 { 0% { opacity: 0; transform: translateY(12px); } 2.5% { opacity: 1; transform: none; } 17.5% { opacity: 1; transform: none; } 20% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 0; transform: translateY(12px); } }
+@keyframes hvLit5 { 0% { opacity: 0; } 2.5% { opacity: 1; } 17.5% { opacity: 1; } 20% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes hvSlot4 { 0% { opacity: 0; transform: translateY(12px); } 3% { opacity: 1; transform: none; } 22% { opacity: 1; transform: none; } 25% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 0; transform: translateY(12px); } }
+@keyframes hvLit4 { 0% { opacity: 0; } 3% { opacity: 1; } 22% { opacity: 1; } 25% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes hvSlot15 { 0% { opacity: 0; transform: translateY(12px); } 0.9% { opacity: 1; transform: none; } 5.7% { opacity: 1; transform: none; } 6.6667% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 0; transform: translateY(12px); } }
+@keyframes hvPill { 0% { transform: translateX(0); opacity: 0; } 0.900% { transform: translateX(0); opacity: 1; } 5.400% { transform: translateX(calc((100% + 4px) * 0)); opacity: 1; } 6.667% { transform: translateX(calc((100% + 4px) * 1)); opacity: 1; } 12.067% { transform: translateX(calc((100% + 4px) * 1)); opacity: 1; } 13.333% { transform: translateX(calc((100% + 4px) * 2)); opacity: 1; } 18.733% { transform: translateX(calc((100% + 4px) * 2)); opacity: 1; } 20.000% { transform: translateX(calc((100% + 4px) * 3)); opacity: 1; } 25.400% { transform: translateX(calc((100% + 4px) * 3)); opacity: 1; } 26.667% { transform: translateX(calc((100% + 4px) * 4)); opacity: 1; } 32.067% { transform: translateX(calc((100% + 4px) * 4)); opacity: 1; } 33.333% { transform: translateX(calc((100% + 4px) * 5)); opacity: 1; } 38.733% { transform: translateX(calc((100% + 4px) * 5)); opacity: 1; } 40.000% { transform: translateX(calc((100% + 4px) * 6)); opacity: 1; } 45.400% { transform: translateX(calc((100% + 4px) * 6)); opacity: 1; } 46.667% { transform: translateX(calc((100% + 4px) * 7)); opacity: 1; } 52.067% { transform: translateX(calc((100% + 4px) * 7)); opacity: 1; } 53.333% { transform: translateX(calc((100% + 4px) * 8)); opacity: 1; } 58.733% { transform: translateX(calc((100% + 4px) * 8)); opacity: 1; } 60.000% { transform: translateX(calc((100% + 4px) * 9)); opacity: 1; } 65.400% { transform: translateX(calc((100% + 4px) * 9)); opacity: 1; } 66.667% { transform: translateX(calc((100% + 4px) * 10)); opacity: 1; } 72.067% { transform: translateX(calc((100% + 4px) * 10)); opacity: 1; } 73.333% { transform: translateX(calc((100% + 4px) * 11)); opacity: 1; } 78.733% { transform: translateX(calc((100% + 4px) * 11)); opacity: 1; } 80.000% { transform: translateX(calc((100% + 4px) * 12)); opacity: 1; } 85.400% { transform: translateX(calc((100% + 4px) * 12)); opacity: 1; } 86.667% { transform: translateX(calc((100% + 4px) * 13)); opacity: 1; } 92.067% { transform: translateX(calc((100% + 4px) * 13)); opacity: 1; } 93.333% { transform: translateX(calc((100% + 4px) * 14)); opacity: 1; } 98.733% { transform: translateX(calc((100% + 4px) * 14)); opacity: 1; } 100% { transform: translateX(calc((100% + 4px) * 14)); opacity: 0; } }
+@keyframes hvRankUp { 0%, 1.6% { transform: translateY(116px); } 4.4%, 100% { transform: translateY(0); } }
+@keyframes hvRankShift { 0%, 1.6% { transform: translateY(-58px); } 4.4%, 100% { transform: translateY(0); } }
+@keyframes hvGrow { 0%, 1.4% { transform: scaleX(0.06); } 5%, 100% { transform: scaleX(1); } }
+@keyframes hvMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes hvBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@keyframes hvDrift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.hv-marq:hover .hv-track { animation-play-state: paused; }
+
+/* Reduced-motion: the 48s CSS timeline collapses to end-state (blank),
+   so keep the first scene visible as a static fallback. */
+@media (prefers-reduced-motion: reduce) {
+  [data-hv-stage] > div:first-child { opacity: 1 !important; transform: none !important; }
+}
+
+/* ACT I dot-flood — reduced-motion / no-JS fallback. The scroll animation
+   swaps "It was never the plan." for "That part is ours." via a swelling dot;
+   when it can't run, collapse the 220vh sticky scene into a normal stacked
+   block and give the second line its orange card, so the message is never
+   lost and nothing overlaps. */
+@media (prefers-reduced-motion: reduce) {
+  [data-dark-scene] { height: auto !important; }
+  [data-dark-inner] {
+    position: static !important;
+    height: auto !important;
+    flex-direction: column;
+    gap: 3.5rem;
+    padding-block: 5.5rem;
+  }
+  [data-dark-dot] { display: none !important; }
+  [data-dark-a], [data-dark-b] { position: static !important; }
+  [data-dark-b] { opacity: 1 !important; transform: none !important; }
+  [data-dark-b-card] {
+    display: block;
+    background: var(--color-mango);
+    border-radius: 28px;
+    padding: 3.5rem 1.5rem;
+  }
+}
+
+/* ── Services showcase (ported from design) ─────────────────────
+   Four scenes per service cycle on a shared 13.6s timeline; the chip
+   "lit" overlay (svL) is delay-matched to the visible scene (svS) so
+   the right chip lights as its scene shows. */
+@keyframes svS { 0% { opacity: 0; transform: translateY(12px); } 3% { opacity: 1; transform: none; } 22% { opacity: 1; transform: none; } 25% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 0; transform: translateY(12px); } }
+@keyframes svL { 0% { opacity: 0; } 3% { opacity: 1; } 22% { opacity: 1; } 25% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes svPlay { 0%, 3% { transform: translateX(0); } 22%, 100% { transform: translateX(340px); } }
+@keyframes svBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+
+/* Hold a service row's animations (chips + visual) paused until it scrolls
+   into view — PlayOnView flips data-playing on, and they start from frame 0
+   in sync. */
+[data-play-scope]:not([data-playing]) [style*="animation"] { animation-play-state: paused !important; }
+
+/* Reduced-motion: the 13.6s cycle collapses to its end-state (blank), so
+   pin the FIRST scene of every visual open, and settle every chip to its
+   plain (unlit) state so nothing disappears. */
+@media (prefers-reduced-motion: reduce) {
+  [data-sv-visual] div[style*="svS"]:first-of-type { opacity: 1 !important; transform: none !important; }
+  [data-sv-chip] > span[style*="svL"] { opacity: 0 !important; }
+}
+
+/* Mobile availability badge — floats in as a notification, holds, leaves,
+   then returns each interval (~9s loop). */
+@keyframes bibToast {
+  0%   { opacity: 0; transform: translateY(24px) scale(0.96); }
+  6%   { opacity: 1; transform: translateY(0) scale(1); }
+  34%  { opacity: 1; transform: translateY(0) scale(1); }
+  42%  { opacity: 0; transform: translateY(24px) scale(0.96); }
+  100% { opacity: 0; transform: translateY(24px) scale(0.96); }
+}

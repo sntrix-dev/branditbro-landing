@@ -1,0 +1,15 @@
+/node_modules
+/.next
+/out
+/build
+.env
+.env*.local
+.DS_Store
+*.pem
+npm-debug.log*
+next-env.d.ts
+/coverage
+
+# local cleanup / transfer artifacts
+/_to_delete
+_update.zip
