@@ -92,20 +92,21 @@ export async function POST(req: Request) {
 
   // Mirror the lead to Launchwing (best-effort, like the DB save above).
   if (launchwingEnabled) {
-    const need = [
-      (data.services || []).join(", "),
+    const brief = [
+      data.note || "",
       data.est ? `Estimate: ${data.est}` : "",
       data.scope ? `Scope: ${data.scope}` : "",
-      data.company ? `Business: ${data.company}` : "",
-      data.note || "",
+      data.source && data.source !== "web" ? `Source: ${data.source}` : "",
     ].filter(Boolean).join("\n");
     try {
       await submitToLaunchwing(
         {
-          what_do_you_need: need,
+          services: data.services || [],
           name: data.name,
-          whatsapp_number: data.phone || "",
-          email: data.email || "",
+          phone: data.phone,
+          email: data.email,
+          company: data.company,
+          brief,
         },
         data.pageUrl || req.headers.get("referer") || undefined,
       );
