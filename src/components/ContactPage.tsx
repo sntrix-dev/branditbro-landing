@@ -53,29 +53,10 @@ export default function ContactPage() {
 
   const services = useMemo(() => Object.keys(picked).filter((k) => picked[k]).map((k) => LABELS[k] || k), [picked]);
 
-  const waMessage = () => {
-    const parts = [
-      `Hi ${contact.dmKeyword ? "" : ""}branditbro — new enquiry`,
-      `Name: ${name}`,
-      email ? `Email: ${email}` : "",
-      company ? `Business: ${company}` : "",
-      services.length ? `Need: ${services.join(", ")}` : "",
-      est ? `Estimate: ${est}` : "",
-      scope ? `Scope: ${scope}` : "",
-      note ? `Note: ${note}` : "",
-    ].filter(Boolean);
-    return encodeURIComponent(parts.join("\n"));
-  };
-
   const submit = async () => {
     if (!canSubmit || busy) return;
     setErr("");
     setBusy(true);
-
-    // WhatsApp "also" — open within the click gesture so it isn't popup-blocked
-    if (wa) {
-      window.open(`${wa}?text=${waMessage()}`, "_blank", "noopener");
-    }
 
     try {
       const res = await fetch("/api/enquiry", {
@@ -88,13 +69,11 @@ export default function ContactPage() {
       setSent(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
-      // Email failed, but if WhatsApp is configured the enquiry still went through there.
-      if (wa) {
-        setSent(true);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        setErr("Something went wrong sending that. Please email us directly — the address is in the footer.");
-      }
+      setErr(
+        wa
+          ? "Something went wrong sending that. Please try again, or message us on WhatsApp instead."
+          : "Something went wrong sending that. Please email us directly — the address is in the footer.",
+      );
     } finally {
       setBusy(false);
     }

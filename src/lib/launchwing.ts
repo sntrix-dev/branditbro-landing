@@ -39,6 +39,11 @@ function toOption(label: string): string | null {
   return null;
 }
 
+const SITE_ORIGIN = process.env.LAUNCHWING_ORIGIN || "https://branditbro.com";
+function originOf(url?: string): string {
+  try { return url ? new URL(url).origin : SITE_ORIGIN; } catch { return SITE_ORIGIN; }
+}
+
 export interface LaunchwingInput {
   services: string[];
   name: string;
@@ -64,7 +69,14 @@ export async function submitToLaunchwing(input: LaunchwingInput, pageUrl?: strin
 
   const res = await fetch(`${BASE}/v1/public/forms/${FORM_ID}/submissions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Launchwing-Key": KEY },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Launchwing-Key": KEY,
+      // Public (pk_) keys are origin-checked like a browser call would be —
+      // a server-side request has no Origin, so send the site's own.
+      Origin: originOf(pageUrl),
+      Referer: pageUrl || `${originOf(pageUrl)}/`,
+    },
     body: JSON.stringify({ fields, pageUrl: pageUrl || "" }),
     signal: AbortSignal.timeout(8000),
   });

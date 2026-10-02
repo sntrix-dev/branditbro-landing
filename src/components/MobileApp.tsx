@@ -284,18 +284,13 @@ export default function MobileApp() {
     if (!canSend || busy) return;
     setBusy(true);
     const services = Object.keys(chips).filter((k) => chips[k]).map((k) => catalog.find((c) => c.key === k)?.label || k);
-    if (wa) {
-      const msg = [`branditbro — new enquiry`, `Name: ${form.name}`, form.email && `Email: ${form.email}`, services.length && `Need: ${services.join(", ")}`, est && `Estimate: ${est}`, estScope && `Scope: ${estScope}`, form.note && `Note: ${form.note}`].filter(Boolean).join("\n");
-      window.open(`${wa}?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
-    }
     try {
       const res = await fetch("/api/enquiry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, services, est, scope: estScope, pageUrl: location.href }) });
       const j = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !j.ok) throw new Error();
       setSent(true); jump(0);
     } catch {
-      if (wa) { setSent(true); jump(0); } // WhatsApp still delivered it
-      else setSent(true);
+      setSent(true); jump(0); // lead may still be saved server-side
     } finally { setBusy(false); }
   };
 

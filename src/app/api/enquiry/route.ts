@@ -91,6 +91,7 @@ export async function POST(req: Request) {
   }
 
   // Mirror the lead to Launchwing (best-effort, like the DB save above).
+  let launchwing = launchwingEnabled ? "ok" : "disabled";
   if (launchwingEnabled) {
     const brief = [
       data.note || "",
@@ -112,6 +113,7 @@ export async function POST(req: Request) {
       );
     } catch (err) {
       console.error("[enquiry] Launchwing submit failed (continuing)", err);
+      launchwing = err instanceof Error ? err.message.slice(0, 300) : "error";
     }
   }
 
@@ -129,14 +131,14 @@ export async function POST(req: Request) {
       // The lead is already saved (if a DB is configured) and WhatsApp still
       // delivers client-side, so nothing is lost — but surface the misconfig.
       console.error("[enquiry] SES send failed", err);
-      return NextResponse.json({ ok: false, error: "email_error" }, { status: 502 });
+      return NextResponse.json({ ok: false, error: "email_error", launchwing }, { status: 502 });
     }
   } else {
     // No sender configured yet — log so nothing is lost during setup.
     console.log("[enquiry] (ENQUIRY_FROM not set — SES disabled) →\n" + text);
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, launchwing });
 }
 
 /** Simple branded HTML version of the enquiry email. */
