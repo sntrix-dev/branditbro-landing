@@ -3,7 +3,7 @@ import { randomInt } from "node:crypto";
 import { dbEnabled, saveApplication, getRole, refExists, type ApplicationKind, type NewApplication } from "@/lib/careers";
 import { DEFAULT_ROLES, REFERRAL_ROLE } from "@/content/careers-schema";
 import { s3Enabled, uploadResume, resumeKey } from "@/lib/s3";
-import { mailEnabled, sendMail } from "@/lib/mailer";
+import { sendTemplateEmail, TEMPLATES } from "@/lib/launchwing";
 import { getSiteContent } from "@/lib/content";
 import {
   clientIp, rateLimit, sniffResume, MAX_RESUME_BYTES,
@@ -15,7 +15,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const KINDS: ApplicationKind[] = ["role", "open", "referral"];
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 interface Payload {
   kind?: string; roleKey?: string;
@@ -153,29 +152,42 @@ export async function POST(req: Request) {
   const brand = content.site.name;
   const replyDays = content.careers?.replyDays ?? 3;
 
-  if (mailEnabled) {
-    const from = process.env.ENQUIRY_FROM as string;
-    // team alert
-    try {
-      await sendMail({
-        from, to: inbox, replyTo: email,
-        subject: `New application — ${name}${roleTitle ? ` · ${roleTitle}` : ""} (${ref})`,
-        text: teamText(app, brand),
-        html: teamHtml(app),
-      });
-    } catch (err) { console.error("[careers/apply] team email failed", err); }
-    // applicant receipt
-    try {
-      await sendMail({
-        from, to: email, replyTo: inbox,
-        subject: `We've got your application — ${ref}`,
-        text: receiptText(name, ref, roleTitle, kind, replyDays, brand),
-        html: receiptHtml(name, ref, roleTitle, kind, replyDays),
-      });
-    } catch (err) { console.error("[careers/apply] receipt email failed", err); }
-  } else {
-    console.log(`[careers/apply] (SES off) new application ${ref}\n` + teamText(app, brand));
-  }
+  const appliedFor = kind === "referral" ? "referral partner application" : roleTitle ? `application for ${roleTitle}` : "application";
+  const nextStep = kind === "referral"
+    ? "If it is a go, we send the commission terms in writing before your first intro."
+    : "If it is a yes, we set up a 30-minute call and one small paid trial task at your rate.";
+  // team alert (reply-to on this template is the careers inbox; the applicant's email is in the body)
+  try {
+    await sendTemplateEmail({
+      template: TEMPLATES.teamAlert,
+      to: inbox,
+      idempotencyKey: `apply-team-${ref}`,
+      variables: {
+        alert_type: "New application",
+        name,
+        email,
+        phone: app.phone || "",
+        headline: roleTitle || (kind === "referral" ? "Referral partner" : "Open application"),
+        details: teamText(app, brand),
+        ref,
+      },
+    });
+  } catch (err) { console.error("[careers/apply] team email failed", err); }
+  // applicant receipt
+  try {
+    await sendTemplateEmail({
+      template: TEMPLATES.applicationReceived,
+      to: email,
+      idempotencyKey: `apply-receipt-${ref}`,
+      variables: {
+        receiver_name: name.split(" ")[0],
+        ref,
+        applied_for: appliedFor,
+        reply_days: String(replyDays),
+        next_step: nextStep,
+      },
+    });
+  } catch (err) { console.error("[careers/apply] receipt email failed", err); }
 
   return NextResponse.json({ ok: true, ref });
 }
@@ -208,78 +220,4 @@ function teamText(a: NewApplication, brand: string): string {
     a.videoLink ? `Video:     ${a.videoLink}` : "",
     a.why ? `\nWhy us:\n${a.why}` : "",
   ].filter(Boolean).join("\n");
-}
-
-function row(label: string, value?: string | null) {
-  return value
-    ? `<tr><td style="padding:6px 14px 6px 0;color:#6b4a3a;font-size:13px;white-space:nowrap;vertical-align:top">${label}</td><td style="padding:6px 0;color:#16100d;font-size:14px">${esc(value)}</td></tr>`
-    : "";
-}
-
-function teamHtml(a: NewApplication): string {
-  return `<!doctype html><html><body style="margin:0;background:#fff3e4;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-    <div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #eadfd0;border-radius:16px;overflow:hidden">
-      <div style="background:#16100d;padding:18px 22px">
-        <span style="font-size:18px;font-weight:800;color:#fff3e4;letter-spacing:-0.02em">brandit<span style="color:#ff7a00">bro</span><span style="color:#e23e2c">.</span></span>
-        <span style="float:right;color:#ff9c5b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding-top:4px">New application · ${esc(a.ref)}</span>
-      </div>
-      <div style="padding:22px">
-        <table style="border-collapse:collapse;width:100%">
-          ${row("Role", a.roleTitle)}${row("Kind", a.kind)}${row("Name", a.name)}${row("Email", a.email)}
-          ${row("WhatsApp", a.phone)}${row("Experience", a.years ? a.years + " yrs" : null)}
-          ${row("Skills", (a.skills ?? []).join(", ") || null)}${row("Links", (a.links ?? []).join("  ·  ") || null)}
-          ${row("Engagement", a.engagement)}${row("Pay", a.pay)}${row("Notice", a.notice)}${row("Hours/wk", a.hours)}
-          ${row("Intro area", a.refCity)}${row("Payout", a.refPayout)}${row("Volume", a.refVolume)}${row("In mind", a.refWho)}
-          ${row("Source", a.source)}${row("Résumé", a.resumeName ? a.resumeName + (a.resumeKey ? " (in S3 — download from admin)" : " (not stored)") : null)}
-          ${row("Video", a.videoLink)}
-        </table>
-        ${a.why ? `<div style="margin-top:16px;padding:14px;background:#fff3e4;border-radius:10px;color:#16100d;font-size:14px;line-height:1.5;white-space:pre-wrap">${esc(a.why)}</div>` : ""}
-      </div>
-    </div>
-  </body></html>`;
-}
-
-function receiptText(name: string, ref: string, roleTitle: string | null, kind: ApplicationKind, replyDays: number, brand: string): string {
-  const what = kind === "referral" ? "referral partner application" : roleTitle ? `application for ${roleTitle}` : "application";
-  return [
-    `Hi ${name.split(" ")[0]},`,
-    "",
-    `Thanks — we've got your ${what}. Your reference is ${ref}.`,
-    "",
-    `What happens next:`,
-    `• Now — this receipt, so you know it arrived.`,
-    `• Within ${replyDays} working days — a real reply from a person on the team, yes or no.`,
-    kind === "referral"
-      ? `• If it's a go — we send the commission terms in writing before your first intro.`
-      : `• If it's a yes — a 30-minute call and one small paid trial task at your rate.`,
-    "",
-    `No need to follow up before then — chasing doesn't move you up the pile, and not chasing doesn't move you down.`,
-    "",
-    `— ${brand}`,
-  ].join("\n");
-}
-
-function receiptHtml(name: string, ref: string, roleTitle: string | null, kind: ApplicationKind, replyDays: number): string {
-  const steps = [
-    ["NOW", "A receipt with everything you sent, so you know it arrived."],
-    [`≤${replyDays}d`, "A real reply from a person on the team. Yes or no, you'll know."],
-    kind === "referral"
-      ? ["IF GO", "We send the commission terms in writing before your first intro."]
-      : ["IF YES", "A 30-minute call slot and the brief for one small paid trial task."],
-  ];
-  return `<!doctype html><html><body style="margin:0;background:#fff3e4;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #eadfd0;border-radius:16px;overflow:hidden">
-      <div style="background:#16100d;padding:20px 22px">
-        <span style="font-size:18px;font-weight:800;color:#fff3e4;letter-spacing:-0.02em">brandit<span style="color:#ff7a00">bro</span><span style="color:#e23e2c">.</span></span>
-      </div>
-      <div style="padding:24px 22px">
-        <h1 style="margin:0 0 6px;font-size:22px;color:#16100d">Got it, ${esc(name.split(" ")[0])}.</h1>
-        <p style="margin:0 0 18px;font-size:15px;line-height:1.5;color:#4a3730">Your ${roleTitle ? esc(roleTitle) + " " : ""}application is in. Reference <strong>${esc(ref)}</strong>.</p>
-        <div style="background:#16100d;border-radius:14px;padding:18px 20px">
-          ${steps.map(([k, v]) => `<div style="display:flex;gap:12px;margin:8px 0"><span style="color:#ff7a00;font-weight:800;font-size:13px;min-width:52px">${k}</span><span style="color:rgba(255,243,228,0.8);font-size:14px;line-height:1.4">${esc(v)}</span></div>`).join("")}
-        </div>
-        <p style="margin:18px 0 0;font-size:13px;line-height:1.5;color:#8a6b5b">No need to follow up before then — we mean the ${replyDays} days.</p>
-      </div>
-    </div>
-  </body></html>`;
 }

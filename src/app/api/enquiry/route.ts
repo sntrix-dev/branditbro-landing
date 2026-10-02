@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { dbEnabled, saveLead } from "@/lib/db";
 import { linkLead } from "@/lib/pricing-deals";
-import { mailEnabled, sendMail } from "@/lib/mailer";
 import { getSiteContent } from "@/lib/content";
-import { launchwingEnabled, submitToLaunchwing } from "@/lib/launchwing";
+import { launchwingEnabled, submitToLaunchwing, sendTemplateEmail, TEMPLATES } from "@/lib/launchwing";
 
 export const runtime = "nodejs";
-
-const esc = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 interface Enquiry {
   name?: string;
@@ -91,8 +87,11 @@ export async function POST(req: Request) {
   }
 
   // Mirror the lead to Launchwing (best-effort, like the DB save above).
-  let launchwing = launchwingEnabled ? "ok" : "disabled";
-  if (launchwingEnabled) {
+  // The Launchwing Contact form requires an email, so WhatsApp-only leads (and
+  // the pricing builder, which only asks for a phone) skip it and go straight
+  // to the team alert below.
+  let launchwing = !launchwingEnabled ? "disabled" : data.email ? "ok" : "skipped_no_email";
+  if (launchwingEnabled && data.email) {
     const brief = [
       data.note || "",
       data.est ? `Estimate: ${data.est}` : "",
@@ -117,54 +116,29 @@ export async function POST(req: Request) {
     }
   }
 
-  if (mailEnabled) {
+  // Emails: the Launchwing "Contact" form sends the customer auto-reply and the
+  // team alert itself. If the form submission failed, alert the team directly
+  // through the Emailer so the lead is never silent.
+  if (launchwing !== "ok") {
     try {
-      await sendMail({
-        from: process.env.ENQUIRY_FROM as string,
+      await sendTemplateEmail({
+        template: TEMPLATES.teamAlert,
         to: contact.email,
-        replyTo: data.email || undefined,
-        subject: `New enquiry — ${data.name}${data.est ? ` (${data.est})` : ""}`,
-        text,
-        html: renderHtml(data),
+        variables: {
+          alert_type: "New enquiry",
+          name: data.name,
+          email: data.email || "",
+          phone: data.phone || "",
+          headline: (data.services || []).join(", ") || "Enquiry",
+          details: text,
+          ref: data.source || "web",
+        },
       });
     } catch (err) {
-      // The lead is already saved (if a DB is configured) and WhatsApp still
-      // delivers client-side, so nothing is lost — but surface the misconfig.
-      console.error("[enquiry] SES send failed", err);
-      return NextResponse.json({ ok: false, error: "email_error", launchwing }, { status: 502 });
+      console.error("[enquiry] fallback team alert failed", err);
     }
-  } else {
-    // No sender configured yet — log so nothing is lost during setup.
-    console.log("[enquiry] (ENQUIRY_FROM not set — SES disabled) →\n" + text);
+    console.log("[enquiry] →\n" + text);
   }
 
   return NextResponse.json({ ok: true, launchwing });
-}
-
-/** Simple branded HTML version of the enquiry email. */
-function renderHtml(d: Enquiry): string {
-  const row = (label: string, value?: string) =>
-    value
-      ? `<tr><td style="padding:6px 14px 6px 0;color:#6b4a3a;font-size:13px;white-space:nowrap;vertical-align:top">${label}</td><td style="padding:6px 0;color:#16100d;font-size:14px">${esc(value)}</td></tr>`
-      : "";
-  return `<!doctype html><html><body style="margin:0;background:#fff3e4;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #eadfd0;border-radius:16px;overflow:hidden">
-      <div style="background:#16100d;padding:18px 22px">
-        <span style="font-size:18px;font-weight:800;color:#fff3e4;letter-spacing:-0.02em">brandit<span style="color:#ff7a00">bro</span><span style="color:#e23e2c">.</span></span>
-        <span style="float:right;color:#ff9c5b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding-top:4px">New enquiry</span>
-      </div>
-      <div style="padding:22px">
-        <table style="border-collapse:collapse;width:100%">
-          ${row("Name", d.name)}
-          ${row("Email", d.email)}
-          ${row("WhatsApp", d.phone)}
-          ${row("Business", d.company)}
-          ${row("Services", (d.services || []).join(", ") || undefined)}
-          ${row("Estimate", d.est)}
-          ${row("Scope", d.scope)}
-        </table>
-        ${d.note ? `<div style="margin-top:16px;padding:14px;background:#fff3e4;border-radius:10px;color:#16100d;font-size:14px;line-height:1.5;white-space:pre-wrap">${esc(d.note)}</div>` : ""}
-      </div>
-    </div>
-  </body></html>`;
 }

@@ -85,3 +85,56 @@ export async function submitToLaunchwing(input: LaunchwingInput, pageUrl?: strin
     throw new Error(`Launchwing ${res.status}: ${detail.slice(0, 500)}`);
   }
 }
+
+/* ─────────────────────────── Emailer ───────────────────────────
+ * Transactional email through Launchwing Emailer (replaces AWS SES).
+ * Content, sender (hello@branditbro.com) and reply-to live in the Launchwing
+ * templates — the code only picks a template and fills its variables.
+ *
+ * Needs LAUNCHWING_SECRET_KEY (an "Emailer only" secret key, server-side).
+ * Without it, emails are skipped and logged; enquiries and applications are
+ * still saved.
+ */
+const SECRET = process.env.LAUNCHWING_SECRET_KEY || "";
+export const emailerEnabled = Boolean(SECRET);
+
+// Template IDs aren't secret; they're defaulted so only the secret key needs configuring.
+// Enquiry auto-reply ("Enquiries · We received your enquiry") is sent by the
+// Launchwing Contact form itself, not from code.
+export const TEMPLATES = {
+  /** "Careers · Application received (to applicant)" — variables: receiver_name, ref, applied_for, reply_days, next_step */
+  applicationReceived: process.env.LAUNCHWING_TPL_APPLICATION_RECEIVED || "01a0fe69-2a59-7000-91a3-c4c9615c4828",
+  /** "Team · New lead or application alert (internal)" — variables: alert_type, name, email, phone, headline, details, ref */
+  teamAlert: process.env.LAUNCHWING_TPL_TEAM_ALERT || "01a0fdfb-95ed-7000-897b-db2fc71e5791",
+};
+
+export interface SendEmailInput {
+  template: string;
+  to: string;
+  variables: Record<string, string>;
+  /** Same key = same email; protects against double sends on retries. */
+  idempotencyKey?: string;
+}
+
+export async function sendTemplateEmail(m: SendEmailInput): Promise<string | undefined> {
+  if (!emailerEnabled) {
+    console.log(`[launchwing] (LAUNCHWING_SECRET_KEY not set — email skipped) template=${m.template} to=${m.to}`);
+    return undefined;
+  }
+  if (!m.template) throw new Error("Launchwing template id missing");
+  // Launchwing treats an empty string as "sent" — drop blanks so template defaults apply.
+  const variables = Object.fromEntries(Object.entries(m.variables).filter(([, v]) => v != null && String(v).trim() !== ""));
+  const res = await fetch(`${BASE}/v1/emails`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${SECRET}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": m.idempotencyKey || crypto.randomUUID(),
+    },
+    body: JSON.stringify({ template: m.template, to: m.to, variables }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = await res.text().catch(() => "");
+  if (!res.ok) throw new Error(`Launchwing email ${res.status}: ${body.slice(0, 500)}`);
+  try { return (JSON.parse(body) as { id?: string }).id; } catch { return undefined; }
+}
