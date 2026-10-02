@@ -81,7 +81,7 @@ export default function ContactPage() {
       const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, company, note, services, est, scope }),
+        body: JSON.stringify({ name, phone, email, company, note, services, est, scope, pageUrl: location.href }),
       });
       const json = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !json.ok) throw new Error(json.error || "failed");

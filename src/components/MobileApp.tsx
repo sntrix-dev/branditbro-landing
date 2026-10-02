@@ -289,7 +289,7 @@ export default function MobileApp() {
       window.open(`${wa}?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
     }
     try {
-      const res = await fetch("/api/enquiry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, services, est, scope: estScope }) });
+      const res = await fetch("/api/enquiry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, services, est, scope: estScope, pageUrl: location.href }) });
       const j = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !j.ok) throw new Error();
       setSent(true); jump(0);

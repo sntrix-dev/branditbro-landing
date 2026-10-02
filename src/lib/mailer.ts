@@ -9,10 +9,13 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
  *    message instead — the site, DB and WhatsApp fallback all keep working.
  *  • Credentials resolve through the standard AWS chain: an IAM role when
  *    running on EC2 / ECS / Lambda (no keys in env — preferred), or
- *    AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY locally.
- *  • Region comes from AWS_SES_REGION (or AWS_REGION); it MUST be the region
- *    where your SES sending identity is verified. Defaults to ap-south-1
- *    (Mumbai). AWS_SES_ENDPOINT can override the endpoint (LocalStack/tests).
+ *    SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY locally. (Named without the
+ *    "AWS_" prefix because some hosts, e.g. AWS Amplify, reject env vars
+ *    that start with that reserved prefix.)
+ *  • Region comes from AWS_SES_REGION (or SES_REGION_FALLBACK); it MUST be
+ *    the region where your SES sending identity is verified. Defaults to
+ *    ap-south-1 (Mumbai). AWS_SES_ENDPOINT can override the endpoint
+ *    (LocalStack/tests).
  */
 
 export const mailEnabled = !!process.env.ENQUIRY_FROM;
@@ -20,8 +23,11 @@ export const mailEnabled = !!process.env.ENQUIRY_FROM;
 let client: SESv2Client | null = null;
 function getClient(): SESv2Client {
   if (!client) {
+    const accessKeyId = process.env.SES_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.SES_SECRET_ACCESS_KEY;
     client = new SESv2Client({
-      region: process.env.AWS_SES_REGION || process.env.AWS_REGION || "ap-south-1",
+      region: process.env.AWS_SES_REGION || process.env.SES_REGION_FALLBACK || "ap-south-1",
+      ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
       ...(process.env.AWS_SES_ENDPOINT ? { endpoint: process.env.AWS_SES_ENDPOINT } : {}),
     });
   }

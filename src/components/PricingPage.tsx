@@ -1738,7 +1738,7 @@ class PricingBuilder extends React.Component<{ pricing: Pricing }, State> {
       const dayLabel = cd ? cd.dow + " " + cd.num : "";
       const q = this.state.quote;
       const note = "Requested a 15-min call — " + dayLabel + " " + (this.state.chatTime || "") + " IST. Industry: " + (industryLabel || "—") + (q ? " · quoted " + this.money(q.total) + " (" + q.source + ")" : "");
-      const body = { name: this.state.chatName, phone: this.state.chatPhone, services: scopeNames, est, scope, note, source: "pricing-builder", dealId: q?.dealId ?? undefined };
+      const body = { name: this.state.chatName, phone: this.state.chatPhone, services: scopeNames, est, scope, note, source: "pricing-builder", dealId: q?.dealId ?? undefined, pageUrl: location.href };
       (async () => {
         try { await fetch("/api/enquiry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); } catch { /* best-effort */ }
         this.setState({ chatSent: true });

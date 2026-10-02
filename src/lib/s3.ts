@@ -9,10 +9,12 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  *    the apply route simply doesn't persist the file (the parsed text/fields
  *    are still saved); nothing breaks during setup.
  *  • Credentials resolve through the standard AWS chain — an IAM role on
- *    EC2/ECS/Amplify (preferred, no keys in env) or AWS_ACCESS_KEY_ID /
- *    AWS_SECRET_ACCESS_KEY locally. The role needs s3:PutObject + s3:GetObject
- *    on the bucket.
- *  • Region: AWS_S3_REGION → AWS_SES_REGION → AWS_REGION → ap-south-1.
+ *    EC2/ECS/Amplify (preferred, no keys in env) or SES_ACCESS_KEY_ID /
+ *    SES_SECRET_ACCESS_KEY locally. (Named without the "AWS_" prefix because
+ *    some hosts, e.g. AWS Amplify, reject env vars that start with that
+ *    reserved prefix.) The role needs s3:PutObject + s3:GetObject on the
+ *    bucket.
+ *  • Region: AWS_S3_REGION → AWS_SES_REGION → SES_REGION_FALLBACK → ap-south-1.
  *  • Objects are written with server-side encryption (AES256) and are private;
  *    the admin downloads them through short-lived pre-signed URLs, so the
  *    bucket never needs public access.
@@ -25,12 +27,15 @@ const PREFIX = (process.env.CAREERS_S3_PREFIX || "resumes").replace(/^\/+|\/+$/g
 let client: S3Client | null = null;
 function getClient(): S3Client {
   if (!client) {
+    const accessKeyId = process.env.SES_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.SES_SECRET_ACCESS_KEY;
     client = new S3Client({
       region:
         process.env.AWS_S3_REGION ||
         process.env.AWS_SES_REGION ||
-        process.env.AWS_REGION ||
+        process.env.SES_REGION_FALLBACK ||
         "ap-south-1",
+      ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
     });
   }
   return client;

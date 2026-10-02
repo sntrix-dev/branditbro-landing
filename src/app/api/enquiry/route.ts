@@ -3,6 +3,7 @@ import { dbEnabled, saveLead } from "@/lib/db";
 import { linkLead } from "@/lib/pricing-deals";
 import { mailEnabled, sendMail } from "@/lib/mailer";
 import { getSiteContent } from "@/lib/content";
+import { launchwingEnabled, submitToLaunchwing } from "@/lib/launchwing";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ interface Enquiry {
   scope?: string;
   source?: string;
   dealId?: number; // links this lead to the analysed quote it came from
+  pageUrl?: string; // page the form was submitted from (forwarded to Launchwing)
 }
 
 /**
@@ -85,6 +87,30 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       console.error("[enquiry] saveLead failed (continuing)", err);
+    }
+  }
+
+  // Mirror the lead to Launchwing (best-effort, like the DB save above).
+  if (launchwingEnabled) {
+    const need = [
+      (data.services || []).join(", "),
+      data.est ? `Estimate: ${data.est}` : "",
+      data.scope ? `Scope: ${data.scope}` : "",
+      data.company ? `Business: ${data.company}` : "",
+      data.note || "",
+    ].filter(Boolean).join("\n");
+    try {
+      await submitToLaunchwing(
+        {
+          what_do_you_need: need,
+          name: data.name,
+          whatsapp_number: data.phone || "",
+          email: data.email || "",
+        },
+        data.pageUrl || req.headers.get("referer") || undefined,
+      );
+    } catch (err) {
+      console.error("[enquiry] Launchwing submit failed (continuing)", err);
     }
   }
 
